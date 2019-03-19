@@ -1781,6 +1781,103 @@ as_test_content_rating_mappings (void)
 	g_assert_cmpuint (as_content_rating_attribute_to_csm_age ("not-valid-id", AS_CONTENT_RATING_VALUE_INTENSE), ==, 0);
 }
 
+/* Test that the OARS → description mapping table in as_content_rating_attribute_to_description()
+ * is reasonably complete. All known IDs should have a description for NONE, and at least one value;
+ * and all non-NULL descriptions must be distinct.
+ *
+ * It's acceptable for not all (id, value) combinations to be described. For example, the "intense"
+ * level is not used for drug-related categories, so has no description.
+ *
+ * Finally, test that unknown values of #AsContentRatingValue return an unknown age,
+ * and unknown IDs do similarly.
+ */
+static void
+as_test_content_rating_descriptions (void)
+{
+	const AsContentRatingValue values[] = {
+		AS_CONTENT_RATING_VALUE_NONE,
+		AS_CONTENT_RATING_VALUE_MILD,
+		AS_CONTENT_RATING_VALUE_MODERATE,
+		AS_CONTENT_RATING_VALUE_INTENSE,
+	};
+	g_autofree const gchar **ids = as_content_rating_get_all_rating_ids ();
+
+	for (gsize i = 0; ids[i] != NULL; i++) {
+		const gchar *descs[G_N_ELEMENTS (values)];
+		for (gsize j = 0; j < G_N_ELEMENTS (values); j++) {
+			descs[j] = as_content_rating_attribute_to_description (ids[i], values[j]);
+		}
+
+		/* NONE should always be described */
+		g_assert_nonnull (descs[0]);
+		gboolean at_least_one = FALSE;
+		for (gsize j = 1; j < G_N_ELEMENTS (values); j++) {
+			if (descs[j] == NULL) {
+				continue;
+			}
+
+			at_least_one = TRUE;
+			for (gsize k = 0; k < j; k++) {
+				g_assert_cmpstr (descs[j], !=, descs[k]);
+			}
+		}
+		g_assert_true (at_least_one);
+
+		g_assert_cmpstr (NULL, ==, as_content_rating_attribute_to_description (ids[i], AS_CONTENT_RATING_VALUE_UNKNOWN));
+		g_assert_cmpstr (NULL, ==, as_content_rating_attribute_to_description (ids[i], AS_CONTENT_RATING_VALUE_LAST));
+	}
+
+	g_assert_cmpstr (as_content_rating_attribute_to_description ("not-valid-id", AS_CONTENT_RATING_VALUE_INTENSE), ==, NULL);
+}
+
+/* Test that the OARS → description mapping table in as_content_rating_attribute_to_description()
+ * is consistent with the OARS → CSM age mapping table in as_content_rating_attribute_to_csm_age(),
+ * in the sense that:
+ *
+ *    age(id, value_j) !=  age(id, value_k)
+ * ⇒ desc(id, value_j) != desc(id, value_k)
+ *
+ * The rationale is that if two apps have different age ratings, we should always be able to describe the difference.
+ *
+ * Since we assert elsewhere that the age() mapping increases monotonically, it's enough to test
+ * adjacent values indexes.
+ */
+static void
+as_test_content_rating_consistent_csm_descriptions (void)
+{
+	const AsContentRatingValue values[] = {
+		AS_CONTENT_RATING_VALUE_NONE,
+		AS_CONTENT_RATING_VALUE_MILD,
+		AS_CONTENT_RATING_VALUE_MODERATE,
+		AS_CONTENT_RATING_VALUE_INTENSE,
+	};
+	g_autofree const gchar **ids = as_content_rating_get_all_rating_ids ();
+
+	for (gsize i = 0; ids[i] != NULL; i++) {
+		for (gsize j = 0; j < G_N_ELEMENTS (values) - 1; j++) {
+			guint age_j = as_content_rating_attribute_to_csm_age (ids[i], j);
+			guint age_k = as_content_rating_attribute_to_csm_age (ids[i], j + 1);
+
+			if (age_j != age_k) {
+				const gchar *desc_j = as_content_rating_attribute_to_description (ids[i], j);
+				const gchar *desc_k = as_content_rating_attribute_to_description (ids[i], j + 1);
+
+				if (g_strcmp0 (desc_j, desc_k) == 0) {
+					g_message ("%s:%s: %s %s and %s map to different CSM ages %u and %u, but the same description '%s'",
+						   G_STRLOC, G_STRFUNC,
+						   ids[i],
+						   as_content_rating_value_to_string (values[j]),
+						   as_content_rating_value_to_string (values[j + 1]),
+						   age_j,
+						   age_k,
+						   desc_j);
+					g_test_fail ();
+				}
+			}
+		}
+	}
+}
+
 static void
 as_test_app_func (void)
 {
@@ -5605,6 +5702,8 @@ main (int argc, char **argv)
 	g_test_add_func ("/AppStream/checksum", as_test_checksum_func);
 	g_test_add_func ("/AppStream/content_rating", as_test_content_rating_func);
 	g_test_add_func ("/AppStream/content_rating/mappings", as_test_content_rating_mappings);
+	g_test_add_func ("/AppStream/content_rating/descriptions", as_test_content_rating_descriptions);
+	g_test_add_func ("/AppStream/content_rating/consistent-csm-descriptions", as_test_content_rating_consistent_csm_descriptions);
 	g_test_add_func ("/AppStream/release", as_test_release_func);
 	g_test_add_func ("/AppStream/release{date}", as_test_release_date_func);
 	g_test_add_func ("/AppStream/release{appdata}", as_test_release_appdata_func);
