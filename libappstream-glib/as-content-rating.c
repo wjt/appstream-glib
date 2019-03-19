@@ -373,6 +373,9 @@ as_content_rating_attribute_to_description (const gchar          *id,
 	{ "drugs-narcotics",	AS_CONTENT_RATING_VALUE_MODERATE,
 	/* TRANSLATORS: content rating description */
 	_("Use of illicit drugs") },
+	{ "drugs-tobacco",	AS_CONTENT_RATING_VALUE_NONE,
+	/* TRANSLATORS: content rating description */
+	_("No references to tobacco products") },
 	{ "drugs-tobacco",	AS_CONTENT_RATING_VALUE_MILD,
 	/* TRANSLATORS: content rating description */
 	_("References to tobacco products") },
@@ -388,6 +391,9 @@ as_content_rating_attribute_to_description (const gchar          *id,
 	{ "sex-nudity",		AS_CONTENT_RATING_VALUE_MODERATE,
 	/* TRANSLATORS: content rating description */
 	_("Prolonged nudity") },
+	{ "sex-nudity",		AS_CONTENT_RATING_VALUE_INTENSE,
+	/* TRANSLATORS: content rating description */
+	_("Explicit nudity showing nipples or sexual organs") },
 	{ "sex-themes",		AS_CONTENT_RATING_VALUE_NONE,
 	/* TRANSLATORS: content rating description */
 	_("No references to or depictions of sexual nature") },
