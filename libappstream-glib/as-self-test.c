@@ -1878,6 +1878,47 @@ as_test_content_rating_consistent_csm_descriptions (void)
 	}
 }
 
+/* Test that the correct rating system is selected for a variety of locales; in
+ * particular, the rating system is based on the territory, not the language.
+ * This distinction is important for languages spoken in many countries with
+ * different regulatory frameworks (eg English, German, Spanish, Portuguese,
+ * Russian) and for countries where many different languages are spoken.
+ */
+static void
+as_test_content_rating_system_from_locale (void)
+{
+	g_assert_cmpuint (AS_CONTENT_RATING_SYSTEM_PEGI, ==, as_content_rating_system_from_locale ("de_AT"));
+	g_assert_cmpuint (AS_CONTENT_RATING_SYSTEM_USK, ==, as_content_rating_system_from_locale ("de_DE"));
+	g_assert_cmpuint (AS_CONTENT_RATING_SYSTEM_PEGI, ==, as_content_rating_system_from_locale ("en_GB"));
+	g_assert_cmpuint (AS_CONTENT_RATING_SYSTEM_ESRB, ==, as_content_rating_system_from_locale ("en_CA"));
+	g_assert_cmpuint (AS_CONTENT_RATING_SYSTEM_PEGI, ==, as_content_rating_system_from_locale ("fr_BE"));
+	g_assert_cmpuint (AS_CONTENT_RATING_SYSTEM_ESRB, ==, as_content_rating_system_from_locale ("fr_CA"));
+	g_assert_cmpuint (AS_CONTENT_RATING_SYSTEM_PEGI, ==, as_content_rating_system_from_locale ("es_ES"));
+	g_assert_cmpuint (AS_CONTENT_RATING_SYSTEM_ESRB, ==, as_content_rating_system_from_locale ("es_MX"));
+	g_assert_cmpuint (AS_CONTENT_RATING_SYSTEM_ESRB, ==, as_content_rating_system_from_locale ("es_US"));
+	g_assert_cmpuint (AS_CONTENT_RATING_SYSTEM_GSRR, ==, as_content_rating_system_from_locale ("zh_TW"));
+	g_assert_cmpuint (AS_CONTENT_RATING_SYSTEM_IARC, ==, as_content_rating_system_from_locale ("zh_CN"));
+	g_assert_cmpuint (AS_CONTENT_RATING_SYSTEM_IARC, ==, as_content_rating_system_from_locale ("zh_HK"));
+	g_assert_cmpuint (AS_CONTENT_RATING_SYSTEM_MDA, ==, as_content_rating_system_from_locale ("zh_SG"));
+	g_assert_cmpuint (AS_CONTENT_RATING_SYSTEM_MDA, ==, as_content_rating_system_from_locale ("en_SG"));
+	g_assert_cmpuint (AS_CONTENT_RATING_SYSTEM_RUSSIA, ==, as_content_rating_system_from_locale ("ru_RU"));
+	g_assert_cmpuint (AS_CONTENT_RATING_SYSTEM_PEGI, ==, as_content_rating_system_from_locale ("ru_UA"));
+	g_assert_cmpuint (AS_CONTENT_RATING_SYSTEM_IGRS, ==, as_content_rating_system_from_locale ("id_ID"));
+	g_assert_cmpuint (AS_CONTENT_RATING_SYSTEM_PEGI, ==, as_content_rating_system_from_locale ("ar_SA"));
+	g_assert_cmpuint (AS_CONTENT_RATING_SYSTEM_IARC, ==, as_content_rating_system_from_locale ("ar_YE"));
+}
+
+static void
+as_test_content_rating_system_to_string (void)
+{
+	guint i;
+	G_STATIC_ASSERT (AS_CONTENT_RATING_VALUE_UNKNOWN == 0);
+
+	for (i = 1; i < AS_CONTENT_RATING_SYSTEM_LAST; i++) {
+		g_assert_nonnull (as_content_rating_system_to_string ((AsContentRatingSystem) i));
+	}
+}
+
 static void
 as_test_app_func (void)
 {
@@ -5704,6 +5745,8 @@ main (int argc, char **argv)
 	g_test_add_func ("/AppStream/content_rating/mappings", as_test_content_rating_mappings);
 	g_test_add_func ("/AppStream/content_rating/descriptions", as_test_content_rating_descriptions);
 	g_test_add_func ("/AppStream/content_rating/consistent-csm-descriptions", as_test_content_rating_consistent_csm_descriptions);
+	g_test_add_func ("/AppStream/content_rating_system/from-locale", as_test_content_rating_system_from_locale);
+	g_test_add_func ("/AppStream/content_rating_system/to-string", as_test_content_rating_system_to_string);
 	g_test_add_func ("/AppStream/release", as_test_release_func);
 	g_test_add_func ("/AppStream/release{date}", as_test_release_date_func);
 	g_test_add_func ("/AppStream/release{appdata}", as_test_release_appdata_func);

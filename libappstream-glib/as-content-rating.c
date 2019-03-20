@@ -626,6 +626,264 @@ as_content_rating_get_all_rating_ids (void)
 	return g_steal_pointer (&ids);
 }
 
+/*
+ * parse_locale:
+ * @locale: (transfer full): a locale to parse
+ * @language_out: (out) (optional) (nullable): return location for the parsed
+ *    language, or %NULL to ignore
+ * @territory_out: (out) (optional) (nullable): return location for the parsed
+ *    territory, or %NULL to ignore
+ * @codeset_out: (out) (optional) (nullable): return location for the parsed
+ *    codeset, or %NULL to ignore
+ * @modifier_out: (out) (optional) (nullable): return location for the parsed
+ *    modifier, or %NULL to ignore
+ *
+ * Parse @locale as a locale string of the form
+ * `language[_territory][.codeset][@modifier]` — see `man 3 setlocale` for
+ * details.
+ *
+ * On success, %TRUE will be returned, and the components of the locale will be
+ * returned in the given addresses, with each component not including any
+ * separators. Otherwise, %FALSE will be returned and the components will be set
+ * to %NULL.
+ *
+ * @locale is modified, and any returned non-%NULL pointers will point inside
+ * it.
+ *
+ * Returns: %TRUE on success, %FALSE otherwise
+ */
+static gboolean
+parse_locale (gchar *locale,
+	      const gchar **language_out,
+	      const gchar **territory_out,
+	      const gchar **codeset_out,
+	      const gchar **modifier_out)
+{
+	gchar *separator;
+	const gchar *language = NULL, *territory = NULL, *codeset = NULL, *modifier = NULL;
+
+	separator = strrchr (locale, '@');
+	if (separator != NULL) {
+		modifier = separator + 1;
+		*separator = '\0';
+	}
+
+	separator = strrchr (locale, '.');
+	if (separator != NULL) {
+		codeset = separator + 1;
+		*separator = '\0';
+	}
+
+	separator = strrchr (locale, '_');
+	if (separator != NULL) {
+		territory = separator + 1;
+		*separator = '\0';
+	}
+
+	language = locale;
+
+	/* Parse failure? */
+	if (*language == '\0') {
+		language = NULL;
+		territory = NULL;
+		codeset = NULL;
+		modifier = NULL;
+	}
+
+	if (language_out != NULL)
+		*language_out = language;
+	if (territory_out != NULL)
+		*territory_out = territory;
+	if (codeset_out != NULL)
+		*codeset_out = codeset;
+	if (modifier_out != NULL)
+		*modifier_out = modifier;
+
+	return (language != NULL);
+}
+
+/**
+ * as_content_rating_system_from_locale:
+ * @locale: a locale string, as returned by setlocale() and friends
+ *
+ * Returns the appropriate rating system for @locale. If the locale cannot be
+ * parsed, or if no local rating system is known,
+ * %AS_CONTENT_RATING_SYSTEM_IARC is returned.
+ *
+ * Returns: the appropriate rating system for @locale.
+ */
+AsContentRatingSystem
+as_content_rating_system_from_locale (const gchar *locale)
+{
+	g_autofree gchar *locale_copy = g_strdup (locale);
+	const gchar *territory;
+
+	g_return_val_if_fail (locale != NULL, AS_CONTENT_RATING_SYSTEM_UNKNOWN);
+
+	/* Default to IARC for locales which can’t be parsed. */
+	if (!parse_locale (locale_copy, NULL, &territory, NULL, NULL))
+		return AS_CONTENT_RATING_SYSTEM_IARC;
+
+	/* Argentina */
+	if (g_strcmp0 (territory, "AR") == 0)
+		return AS_CONTENT_RATING_SYSTEM_INCAA;
+
+	/* Australia */
+	if (g_strcmp0 (territory, "AU") == 0)
+		return AS_CONTENT_RATING_SYSTEM_ACB;
+
+	/* Brazil */
+	if (g_strcmp0 (territory, "BR") == 0)
+		return AS_CONTENT_RATING_SYSTEM_DJCTQ;
+
+	/* Taiwan */
+	if (g_strcmp0 (territory, "TW") == 0)
+		return AS_CONTENT_RATING_SYSTEM_GSRR;
+
+	/* <https://en.wikipedia.org/wiki/Pan_European_Game_Information#Usage>
+	 * lists Europe (except Finland and Germany) and an assortment of other
+	 * countries as using PEGI.
+	 */
+	if (g_strcmp0 (territory, "AL") == 0 ||
+	    g_strcmp0 (territory, "AT") == 0 ||
+	    g_strcmp0 (territory, "BE") == 0 ||
+	    g_strcmp0 (territory, "BA") == 0 ||
+	    g_strcmp0 (territory, "BG") == 0 ||
+	    g_strcmp0 (territory, "HR") == 0 ||
+	    g_strcmp0 (territory, "CR") == 0 ||
+	    g_strcmp0 (territory, "CZ") == 0 ||
+	    g_strcmp0 (territory, "DK") == 0 ||
+	    g_strcmp0 (territory, "EE") == 0 ||
+	    g_strcmp0 (territory, "FR") == 0 ||
+	    g_strcmp0 (territory, "GR") == 0 ||
+	    g_strcmp0 (territory, "HU") == 0 ||
+	    g_strcmp0 (territory, "IS") == 0 ||
+	    g_strcmp0 (territory, "IE") == 0 ||
+	    g_strcmp0 (territory, "IL") == 0 ||
+	    g_strcmp0 (territory, "IT") == 0 ||
+	    g_strcmp0 (territory, "LV") == 0 ||
+	    g_strcmp0 (territory, "LT") == 0 ||
+	    g_strcmp0 (territory, "LU") == 0 ||
+	    g_strcmp0 (territory, "MK") == 0 ||
+	    g_strcmp0 (territory, "MT") == 0 ||
+	    g_strcmp0 (territory, "ME") == 0 ||
+	    g_strcmp0 (territory, "NL") == 0 ||
+	    g_strcmp0 (territory, "NO") == 0 ||
+	    g_strcmp0 (territory, "PL") == 0 ||
+	    g_strcmp0 (territory, "PT") == 0 ||
+	    g_strcmp0 (territory, "RO") == 0 ||
+	    g_strcmp0 (territory, "RS") == 0 ||
+	    g_strcmp0 (territory, "SK") == 0 ||
+	    g_strcmp0 (territory, "SI") == 0 ||
+	    g_strcmp0 (territory, "ES") == 0 ||
+	    g_strcmp0 (territory, "SE") == 0 ||
+	    g_strcmp0 (territory, "CH") == 0 ||
+	    g_strcmp0 (territory, "TR") == 0 ||
+	    g_strcmp0 (territory, "UA") == 0 ||
+	    g_strcmp0 (territory, "GB") == 0)
+		return AS_CONTENT_RATING_SYSTEM_PEGI;
+
+	/* <https://en.wikipedia.org/wiki/Video_game_content_rating_system#Comparison_table>
+	 * claims that India, Pakistan and South Africa also use PEGI, though
+	 * they are not listed on the source above.
+	 */
+	if (g_strcmp0 (territory, "IN") == 0 ||
+	    g_strcmp0 (territory, "PK") == 0 ||
+	    g_strcmp0 (territory, "ZA") == 0)
+		return AS_CONTENT_RATING_SYSTEM_PEGI;
+
+	/* Saudia Arabia's rating system uses identical levels to PEGI.
+	 * http://www.gcam.gov.sa/ar/RulesAndConditions/AgeClassificationOfGames/Pages/default.aspx
+	 */
+	if (g_strcmp0 (territory, "SA") == 0)
+		return AS_CONTENT_RATING_SYSTEM_PEGI;
+
+	/* Finland */
+	if (g_strcmp0 (territory, "FI") == 0)
+		return AS_CONTENT_RATING_SYSTEM_KAVI;
+
+	/* Germany */
+	if (g_strcmp0 (territory, "DE") == 0)
+		return AS_CONTENT_RATING_SYSTEM_USK;
+
+	/* Iran */
+	if (g_strcmp0 (territory, "IR") == 0)
+		return AS_CONTENT_RATING_SYSTEM_ESRA;
+
+	/* Japan */
+	if (g_strcmp0 (territory, "JP") == 0)
+		return AS_CONTENT_RATING_SYSTEM_CERO;
+
+	/* New Zealand */
+	if (g_strcmp0 (territory, "NZ") == 0)
+		return AS_CONTENT_RATING_SYSTEM_OFLCNZ;
+
+	/* Russia: Content rating law */
+	if (g_strcmp0 (territory, "RU") == 0)
+		return AS_CONTENT_RATING_SYSTEM_RUSSIA;
+
+	/* Singapore */
+	if (g_strcmp0 (territory, "SG") == 0)
+		return AS_CONTENT_RATING_SYSTEM_MDA;
+
+	/* South Korea */
+	if (g_strcmp0 (territory, "KR") == 0)
+		return AS_CONTENT_RATING_SYSTEM_GRAC;
+
+	/* USA, Canada, Mexico */
+	if (g_strcmp0 (territory, "US") == 0 ||
+	    g_strcmp0 (territory, "CA") == 0 ||
+	    g_strcmp0 (territory, "MX") == 0)
+		return AS_CONTENT_RATING_SYSTEM_ESRB;
+
+	if (g_strcmp0 (territory, "ID") == 0)
+		return AS_CONTENT_RATING_SYSTEM_IGRS;
+
+	/* everything else is IARC */
+	return AS_CONTENT_RATING_SYSTEM_IARC;
+}
+
+const gchar *
+as_content_rating_system_to_string (AsContentRatingSystem system)
+{
+	switch (system) {
+	case AS_CONTENT_RATING_SYSTEM_IARC:
+		return "IARC";
+	case AS_CONTENT_RATING_SYSTEM_INCAA:
+		return "INCAA";
+	case AS_CONTENT_RATING_SYSTEM_ACB:
+		return "ACB";
+	case AS_CONTENT_RATING_SYSTEM_DJCTQ:
+		return "DJCTQ";
+	case AS_CONTENT_RATING_SYSTEM_GSRR:
+		return "GSRR";
+	case AS_CONTENT_RATING_SYSTEM_PEGI:
+		return "PEGI";
+	case AS_CONTENT_RATING_SYSTEM_KAVI:
+		return "KAVI";
+	case AS_CONTENT_RATING_SYSTEM_USK:
+		return "USK";
+	case AS_CONTENT_RATING_SYSTEM_ESRA:
+		return "ESRA";
+	case AS_CONTENT_RATING_SYSTEM_CERO:
+		return "CERO";
+	case AS_CONTENT_RATING_SYSTEM_OFLCNZ:
+		return "OFLCNZ";
+	case AS_CONTENT_RATING_SYSTEM_RUSSIA:
+		return "RUSSIA";
+	case AS_CONTENT_RATING_SYSTEM_MDA:
+		return "MDA";
+	case AS_CONTENT_RATING_SYSTEM_GRAC:
+		return "GRAC";
+	case AS_CONTENT_RATING_SYSTEM_ESRB:
+		return "ESRB";
+	case AS_CONTENT_RATING_SYSTEM_IGRS:
+		return "IGRS";
+	default:
+		return NULL;
+	}
+}
+
 /**
  * as_content_rating_get_minimum_age:
  * @content_rating: a #AsContentRating

@@ -52,6 +52,48 @@ typedef enum {
 	AS_CONTENT_RATING_VALUE_LAST
 } AsContentRatingValue;
 
+/**
+ * AsContentRatingSystem:
+ * @AS_CONTENT_RATING_SYSTEM_UNKNOWN:		Unknown rating system
+ * @AS_CONTENT_RATING_SYSTEM_IARC:		International Age Rating Coalition
+ * @AS_CONTENT_RATING_SYSTEM_INCAA:		Instituto Nacional de Cine y Artes Audiovisuales (Argentina)
+ * @AS_CONTENT_RATING_SYSTEM_ACB:		Australian Classification Board
+ * @AS_CONTENT_RATING_SYSTEM_DJCTQ:		Sistema de Classificação Indicativa Brasileiro (Brazil)
+ * @AS_CONTENT_RATING_SYSTEM_GSRR:		Game Software Rating Regulations (Taiwan)
+ * @AS_CONTENT_RATING_SYSTEM_PEGI:		Pan European Game Information (most of Europe, plus a handful of other countries)
+ * @AS_CONTENT_RATING_SYSTEM_KAVI:		Kansallinen audiovisuaalinen instituutti (Finland)
+ * @AS_CONTENT_RATING_SYSTEM_USK:		Unterhaltungssoftware Selbstkontrolle
+ * @AS_CONTENT_RATING_SYSTEM_ESRA:		Entertainment Software Rating Association (Iran)
+ * @AS_CONTENT_RATING_SYSTEM_CERO:		Computer Entertainment Rating Organization (Japan)
+ * @AS_CONTENT_RATING_SYSTEM_OFLCNZ:		Office of Film and Literature Classification (New Zealand)
+ * @AS_CONTENT_RATING_SYSTEM_RUSSIA:		Russian content rating law
+ * @AS_CONTENT_RATING_SYSTEM_MDA:		Media Development Authority (Singapore)
+ * @AS_CONTENT_RATING_SYSTEM_GRAC:		Game Rating and Administration Committee (South Korea)
+ * @AS_CONTENT_RATING_SYSTEM_ESRB:		Entertainment Software Rating Board (the rating system used in North America)
+ * @AS_CONTENT_RATING_SYSTEM_IGRS:		Indonesian Game Rating System
+ */
+typedef enum {
+	AS_CONTENT_RATING_SYSTEM_UNKNOWN,
+	AS_CONTENT_RATING_SYSTEM_IARC,
+	AS_CONTENT_RATING_SYSTEM_INCAA,
+	AS_CONTENT_RATING_SYSTEM_ACB,
+	AS_CONTENT_RATING_SYSTEM_DJCTQ,
+	AS_CONTENT_RATING_SYSTEM_GSRR,
+	AS_CONTENT_RATING_SYSTEM_PEGI,
+	AS_CONTENT_RATING_SYSTEM_KAVI,
+	AS_CONTENT_RATING_SYSTEM_USK,
+	AS_CONTENT_RATING_SYSTEM_ESRA,
+	AS_CONTENT_RATING_SYSTEM_CERO,
+	AS_CONTENT_RATING_SYSTEM_OFLCNZ,
+	AS_CONTENT_RATING_SYSTEM_RUSSIA,
+	AS_CONTENT_RATING_SYSTEM_MDA,
+	AS_CONTENT_RATING_SYSTEM_GRAC,
+	AS_CONTENT_RATING_SYSTEM_ESRB,
+	AS_CONTENT_RATING_SYSTEM_IGRS,
+	/*< private >*/
+	AS_CONTENT_RATING_SYSTEM_LAST
+} AsContentRatingSystem;
+
 AsContentRating	*as_content_rating_new		(void);
 
 /* helpers */
@@ -78,5 +120,9 @@ void		 as_content_rating_set_kind	(AsContentRating	*content_rating,
 void		 as_content_rating_add_attribute(AsContentRating	*content_rating,
 						 const gchar		*id,
 						 AsContentRatingValue	 value);
+
+/* content rating systems  */
+AsContentRatingSystem  as_content_rating_system_from_locale (const gchar           *locale);
+const gchar           *as_content_rating_system_to_string   (AsContentRatingSystem  system);
 
 G_END_DECLS
