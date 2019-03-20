@@ -468,7 +468,6 @@ as_content_rating_node_parse (AsContentRating *content_rating, GNode *node,
 	AsContentRatingPrivate *priv = GET_PRIVATE (content_rating);
 	GNode *c;
 	const gchar *tmp;
-	g_autoptr(GHashTable) captions = NULL;
 
 	g_return_val_if_fail (AS_IS_CONTENT_RATING (content_rating), FALSE);
 
