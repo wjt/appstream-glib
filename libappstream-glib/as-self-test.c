@@ -1754,7 +1754,7 @@ as_test_content_rating_func (void)
  * Also test that unknown values of #AsContentRatingValue return an unknown age,
  * and unknown IDs do similarly. */
 static void
-as_test_content_rating_mappings (void)
+as_test_content_rating_mappings (const gchar *id)
 {
 	const AsContentRatingValue values[] = {
 		AS_CONTENT_RATING_VALUE_NONE,
@@ -1762,23 +1762,76 @@ as_test_content_rating_mappings (void)
 		AS_CONTENT_RATING_VALUE_MODERATE,
 		AS_CONTENT_RATING_VALUE_INTENSE,
 	};
-	g_autofree const gchar **ids = as_content_rating_get_all_rating_ids ();
+	guint max_age = 0;
 
-	for (gsize i = 0; ids[i] != NULL; i++) {
-		guint max_age = 0;
-
-		for (gsize j = 0; j < G_N_ELEMENTS (values); j++) {
-			guint age = as_content_rating_attribute_to_csm_age (ids[i], values[j]);
-			g_assert_cmpuint (age, >=, max_age);
-			max_age = age;
-		}
-
-		g_assert_cmpuint (max_age, >, 0);
-		g_assert_cmpuint (as_content_rating_attribute_to_csm_age (ids[i], AS_CONTENT_RATING_VALUE_UNKNOWN), ==, 0);
-		g_assert_cmpuint (as_content_rating_attribute_to_csm_age (ids[i], AS_CONTENT_RATING_VALUE_LAST), ==, 0);
+	for (gsize j = 0; j < G_N_ELEMENTS (values); j++) {
+		guint age = as_content_rating_attribute_to_csm_age (id, values[j]);
+		g_assert_cmpuint (age, >=, max_age);
+		max_age = age;
 	}
 
-	g_assert_cmpuint (as_content_rating_attribute_to_csm_age ("not-valid-id", AS_CONTENT_RATING_VALUE_INTENSE), ==, 0);
+	g_assert_cmpuint (max_age, >, 0);
+	g_assert_cmpuint (as_content_rating_attribute_to_csm_age (id, AS_CONTENT_RATING_VALUE_UNKNOWN), ==, 0);
+	g_assert_cmpuint (as_content_rating_attribute_to_csm_age (id, AS_CONTENT_RATING_VALUE_LAST), ==, 0);
+}
+
+/* Test that as_content_rating_attribute_to_csm_age() returns 0 for unknown IDs.
+ */
+static void
+as_test_content_rating_mappings_unknown (void)
+{
+	const AsContentRatingValue values[] = {
+		AS_CONTENT_RATING_VALUE_UNKNOWN,
+		AS_CONTENT_RATING_VALUE_NONE,
+		AS_CONTENT_RATING_VALUE_MILD,
+		AS_CONTENT_RATING_VALUE_MODERATE,
+		AS_CONTENT_RATING_VALUE_INTENSE,
+		AS_CONTENT_RATING_VALUE_LAST,
+	};
+
+	for (gsize j = 0; j < G_N_ELEMENTS (values); j++) {
+		g_assert_cmpuint (as_content_rating_attribute_to_csm_age ("not-valid-id", values[j]), ==, 0);
+	}
+}
+
+/* For each known ID, test that the CSM → OARS mapping table in
+ * as_content_rating_value_for_csm_age() returns non-UNKNOWN values, and that
+ * the mapping is monotone.
+ */
+static void
+as_test_content_rating_value_for_csm_age (const gchar *id)
+{
+	AsContentRatingValue last_value = AS_CONTENT_RATING_VALUE_UNKNOWN;
+
+	for (guint age = 0; age <= 35; age++) {
+		AsContentRatingValue value = as_content_rating_value_for_csm_age (id, age);
+		g_assert_cmpuint (value, >, AS_CONTENT_RATING_VALUE_UNKNOWN);
+		g_assert_cmpuint (value, <, AS_CONTENT_RATING_VALUE_LAST);
+		g_assert_cmpuint (value, >=, last_value);
+		/* TODO: it would be nice to assert that only "real" values
+		 * (those with descriptions) are returned. However, some of the
+		 * values without descriptions are used as fudge factors to make
+		 * the round-trip tested in
+		 * as_test_content_rating_system_roundtrip() work. This is
+		 * fundamentally unfixable so long as the mapping between
+		 * OARS and specific rating systems goes via CSM.
+		g_assert_nonnull (as_content_rating_attribute_to_description (id, value));
+		 */
+		last_value = value;
+	}
+}
+
+/* Test that as_content_rating_value_for_csm_age() returns UNKNOWN for unknown IDs.
+ */
+static void
+as_test_content_rating_value_for_csm_age_unknown (void)
+{
+	const gchar *id = "not-valid-id";
+
+	for (guint age = 0; age <= 35; age++) {
+		AsContentRatingValue value = as_content_rating_value_for_csm_age (id, age);
+		g_assert_cmpuint (value, ==, AS_CONTENT_RATING_VALUE_UNKNOWN);
+	}
 }
 
 /* Test that the OARS → description mapping table in as_content_rating_attribute_to_description()
@@ -1787,12 +1840,9 @@ as_test_content_rating_mappings (void)
  *
  * It's acceptable for not all (id, value) combinations to be described. For example, the "intense"
  * level is not used for drug-related categories, so has no description.
- *
- * Finally, test that unknown values of #AsContentRatingValue return an unknown age,
- * and unknown IDs do similarly.
  */
 static void
-as_test_content_rating_descriptions (void)
+as_test_content_rating_descriptions (const gchar *id)
 {
 	const AsContentRatingValue values[] = {
 		AS_CONTENT_RATING_VALUE_NONE,
@@ -1800,34 +1850,49 @@ as_test_content_rating_descriptions (void)
 		AS_CONTENT_RATING_VALUE_MODERATE,
 		AS_CONTENT_RATING_VALUE_INTENSE,
 	};
-	g_autofree const gchar **ids = as_content_rating_get_all_rating_ids ();
 
-	for (gsize i = 0; ids[i] != NULL; i++) {
-		const gchar *descs[G_N_ELEMENTS (values)];
-		for (gsize j = 0; j < G_N_ELEMENTS (values); j++) {
-			descs[j] = as_content_rating_attribute_to_description (ids[i], values[j]);
-		}
-
-		/* NONE should always be described */
-		g_assert_nonnull (descs[0]);
-		gboolean at_least_one = FALSE;
-		for (gsize j = 1; j < G_N_ELEMENTS (values); j++) {
-			if (descs[j] == NULL) {
-				continue;
-			}
-
-			at_least_one = TRUE;
-			for (gsize k = 0; k < j; k++) {
-				g_assert_cmpstr (descs[j], !=, descs[k]);
-			}
-		}
-		g_assert_true (at_least_one);
-
-		g_assert_cmpstr (NULL, ==, as_content_rating_attribute_to_description (ids[i], AS_CONTENT_RATING_VALUE_UNKNOWN));
-		g_assert_cmpstr (NULL, ==, as_content_rating_attribute_to_description (ids[i], AS_CONTENT_RATING_VALUE_LAST));
+	const gchar *descs[G_N_ELEMENTS (values)];
+	for (gsize j = 0; j < G_N_ELEMENTS (values); j++) {
+		descs[j] = as_content_rating_attribute_to_description (id, values[j]);
 	}
 
-	g_assert_cmpstr (as_content_rating_attribute_to_description ("not-valid-id", AS_CONTENT_RATING_VALUE_INTENSE), ==, NULL);
+	/* NONE should always be described */
+	g_assert_nonnull (descs[0]);
+	gboolean at_least_one = FALSE;
+	for (gsize j = 1; j < G_N_ELEMENTS (values); j++) {
+		if (descs[j] == NULL) {
+			continue;
+		}
+
+		at_least_one = TRUE;
+		for (gsize k = 0; k < j; k++) {
+			g_assert_cmpstr (descs[j], !=, descs[k]);
+		}
+	}
+	g_assert_true (at_least_one);
+
+	g_assert_cmpstr (NULL, ==, as_content_rating_attribute_to_description (id, AS_CONTENT_RATING_VALUE_UNKNOWN));
+	g_assert_cmpstr (NULL, ==, as_content_rating_attribute_to_description (id, AS_CONTENT_RATING_VALUE_LAST));
+}
+
+/* Test that as_content_rating_attribute_to_description() returns %NULL for an
+ * unknown ID, regardless of the value.
+ */
+static void
+as_test_content_rating_descriptions_unknown (void)
+{
+	const AsContentRatingValue values[] = {
+		AS_CONTENT_RATING_VALUE_UNKNOWN,
+		AS_CONTENT_RATING_VALUE_NONE,
+		AS_CONTENT_RATING_VALUE_MILD,
+		AS_CONTENT_RATING_VALUE_MODERATE,
+		AS_CONTENT_RATING_VALUE_INTENSE,
+		AS_CONTENT_RATING_VALUE_LAST,
+	};
+
+	for (gsize j = 0; j < G_N_ELEMENTS (values); j++) {
+		g_assert_cmpstr (NULL, ==, as_content_rating_attribute_to_description ("not-valid-id", values[j]));
+	}
 }
 
 /* Test that the OARS → description mapping table in as_content_rating_attribute_to_description()
@@ -1843,7 +1908,7 @@ as_test_content_rating_descriptions (void)
  * adjacent values indexes.
  */
 static void
-as_test_content_rating_consistent_csm_descriptions (void)
+as_test_content_rating_consistent_csm_descriptions (const char *id)
 {
 	const AsContentRatingValue values[] = {
 		AS_CONTENT_RATING_VALUE_NONE,
@@ -1851,29 +1916,16 @@ as_test_content_rating_consistent_csm_descriptions (void)
 		AS_CONTENT_RATING_VALUE_MODERATE,
 		AS_CONTENT_RATING_VALUE_INTENSE,
 	};
-	g_autofree const gchar **ids = as_content_rating_get_all_rating_ids ();
 
-	for (gsize i = 0; ids[i] != NULL; i++) {
-		for (gsize j = 0; j < G_N_ELEMENTS (values) - 1; j++) {
-			guint age_j = as_content_rating_attribute_to_csm_age (ids[i], j);
-			guint age_k = as_content_rating_attribute_to_csm_age (ids[i], j + 1);
+	for (gsize j = 0; j < G_N_ELEMENTS (values) - 1; j++) {
+		guint age_j = as_content_rating_attribute_to_csm_age (id, j);
+		guint age_k = as_content_rating_attribute_to_csm_age (id, j + 1);
 
-			if (age_j != age_k) {
-				const gchar *desc_j = as_content_rating_attribute_to_description (ids[i], j);
-				const gchar *desc_k = as_content_rating_attribute_to_description (ids[i], j + 1);
+		if (age_j != age_k) {
+			const gchar *desc_j = as_content_rating_attribute_to_description (id, j);
+			const gchar *desc_k = as_content_rating_attribute_to_description (id, j + 1);
 
-				if (g_strcmp0 (desc_j, desc_k) == 0) {
-					g_message ("%s:%s: %s %s and %s map to different CSM ages %u and %u, but the same description '%s'",
-						   G_STRLOC, G_STRFUNC,
-						   ids[i],
-						   as_content_rating_value_to_string (values[j]),
-						   as_content_rating_value_to_string (values[j + 1]),
-						   age_j,
-						   age_k,
-						   desc_j);
-					g_test_fail ();
-				}
-			}
+			g_assert_cmpstr (desc_j, !=, desc_k);
 		}
 	}
 }
@@ -1916,6 +1968,129 @@ as_test_content_rating_system_to_string (void)
 
 	for (i = 1; i < AS_CONTENT_RATING_SYSTEM_LAST; i++) {
 		g_assert_nonnull (as_content_rating_system_to_string ((AsContentRatingSystem) i));
+	}
+}
+
+/* Tests that as_content_rating_system_age_to_str() returns the correct values
+ * for PEGI when rounding up and rounding down, for all interesting ages.
+ */
+static void
+as_test_content_rating_system_age_to_str_values_pegi (void)
+{
+	AsContentRatingSystem system = AS_CONTENT_RATING_SYSTEM_PEGI;
+	struct {
+		guint age;
+		const gchar *round_down;
+		const gchar *round_up;
+	} cases[] = {
+		{ 0, NULL, "3" },
+		{ 1, NULL, "3" },
+		{ 2, NULL, "3" },
+		{ 3, "3", "3" },
+		{ 4, "3", "7" },
+		{ 5, "3", "7" },
+		{ 6, "3", "7" },
+		{ 7, "7", "7" },
+		{ 8, "7", "12" },
+		{ 9, "7", "12" },
+		{ 10, "7", "12" },
+		{ 11, "7", "12" },
+		{ 12, "12", "12" },
+		{ 13, "12", "16" },
+		{ 14, "12", "16" },
+		{ 15, "12", "16" },
+		{ 16, "16", "16" },
+		{ 17, "16", "18" },
+		{ 18, "18", "18" },
+		{ 19, "18", "18" },
+		{ 969, "18", "18" },
+	};
+	for (gsize i = 0; i < G_N_ELEMENTS (cases); i++) {
+		g_assert_cmpstr (cases[i].round_down, ==, as_content_rating_system_age_to_str (system, cases[i].age, FALSE, NULL));
+		g_assert_cmpstr (cases[i].round_up, ==, as_content_rating_system_age_to_str (system, cases[i].age, TRUE, NULL));
+	}
+}
+
+/* Tests that, for each rating system, rounding up vs down has no effect at the
+ * age boundaries, and that all sensible ages return sensible values.
+ */
+static void
+as_test_content_rating_system_age_to_str (AsContentRatingSystem system)
+{
+	const gchar * const *categories;
+	const guint *ages;
+	gsize n;
+
+	categories = as_content_rating_system_get_categories (system, NULL, &ages, &n);
+	for (gsize i = 0; i < n; i++) {
+		/* On the boundaries, rounding up and down should make no
+		 * difference.
+		 */
+		const gchar *round_down = as_content_rating_system_age_to_str (system, ages[i], FALSE, NULL);
+		const gchar *round_up = as_content_rating_system_age_to_str (system, ages[i], TRUE, NULL);
+		g_assert_cmpstr (round_down, ==, round_up);
+		g_assert_cmpstr (round_down, ==, categories[i]);
+	}
+
+	/* Before we hit the first age bracket, rounding down can return NULL;
+	 * at some point, we should keep getting non-NULL.
+	 */
+	gboolean seen_first;
+	for (guint age = 0; age < 969; age++) {
+		const gchar *str = as_content_rating_system_age_to_str (system, age, FALSE, NULL);
+		if (seen_first) {
+			g_assert_nonnull (str);
+		} else {
+			seen_first = (str != NULL);
+		}
+	}
+	g_assert_true (seen_first);
+
+	/* Rounding up should never return NULL */
+	for (guint age = 0; age < 969; age++) {
+		g_assert_nonnull (as_content_rating_system_age_to_str (system, age, TRUE, NULL));
+	}
+}
+
+/* Tests that, for each category in the given content rating system, exploding
+ * the corresponding CSM age out into OARS ratings then back to a CSM age
+ * yields the same category in the rating system.
+ *
+ * This would fail if a new rating system had a category starting at age 2,
+ * since no OARS rating maps to age 2. (In fact, several of the OARS → CSM
+ * mappings have been fudged to cover all ages used in currently-supported
+ * rating systems.)
+ */
+static void
+as_test_content_rating_system_roundtrip (AsContentRatingSystem system)
+{
+	const gchar **ids = as_content_rating_get_all_rating_ids ();
+	const gchar * const *categories;
+	const guint *ages;
+	gsize n_categories;
+	const gchar *locale = NULL;
+
+	categories = as_content_rating_system_get_categories (system, locale,
+							      &ages, &n_categories);
+	g_assert_cmpuint (n_categories, >, 2);
+	g_assert_nonnull (categories);
+	g_assert_cmpuint (n_categories, ==, g_strv_length ((gchar **) categories));
+
+	for (gsize i = 0; i < n_categories; i++) {
+		const gchar *category = categories[i];
+		guint age = ages[i];
+		g_autoptr(AsContentRating) rating = as_content_rating_new ();
+
+		as_content_rating_set_kind (rating, "oars-1.1");
+
+		for (gsize j = 0; ids[j] != NULL; j++) {
+			AsContentRatingValue value = as_content_rating_value_for_csm_age (ids[j], age);
+			as_content_rating_add_attribute (rating, ids[j], value);
+		}
+
+		guint min_age = as_content_rating_get_minimum_age (rating);
+		const gchar *new_category = as_content_rating_system_age_to_str (system, min_age, FALSE, locale);
+		g_assert_cmpstr (category, ==, new_category);
 	}
 }
 
@@ -5721,6 +5896,38 @@ as_test_ref_string_func (void)
 	g_assert (as_ref_string_unref (rstr) == NULL);
 }
 
+static void
+add_test_for_rating_id (const char *basepath, const char *id, GTestDataFunc func)
+{
+	g_autofree gchar *testpath = g_strconcat (basepath, id, NULL);
+	g_test_add_data_func (testpath, id, func);
+}
+
+static void
+add_tests_for_rating_ids (const char *basepath,
+			    void (*func) (const char *))
+{
+	const gchar **ids = as_content_rating_get_all_rating_ids ();
+
+	for (; *ids != NULL; ids++) {
+		add_test_for_rating_id (basepath, *ids, (GTestDataFunc) func);
+	}
+}
+
+static void
+add_tests_for_rating_systems (const char *basepath,
+			      void (*func) (AsContentRatingSystem))
+{
+	G_STATIC_ASSERT (AS_CONTENT_RATING_SYSTEM_UNKNOWN == 0);
+	for (AsContentRatingSystem system = 1; system < AS_CONTENT_RATING_SYSTEM_LAST; system++) {
+		g_autofree gchar *testpath = g_strconcat (basepath,
+							  as_content_rating_system_to_string (system),
+							  NULL);
+		g_test_add_data_func (testpath, GUINT_TO_POINTER (system), (GTestDataFunc) func);
+	}
+}
+
+
 int
 main (int argc, char **argv)
 {
@@ -5742,11 +5949,20 @@ main (int argc, char **argv)
 	g_test_add_func ("/AppStream/require", as_test_require_func);
 	g_test_add_func ("/AppStream/checksum", as_test_checksum_func);
 	g_test_add_func ("/AppStream/content_rating", as_test_content_rating_func);
-	g_test_add_func ("/AppStream/content_rating/mappings", as_test_content_rating_mappings);
-	g_test_add_func ("/AppStream/content_rating/descriptions", as_test_content_rating_descriptions);
-	g_test_add_func ("/AppStream/content_rating/consistent-csm-descriptions", as_test_content_rating_consistent_csm_descriptions);
+	add_tests_for_rating_ids ("/AppStream/content_rating/mappings/", as_test_content_rating_mappings);
+	g_test_add_func ("/AppStream/content_rating/mappings/unknown", as_test_content_rating_mappings_unknown);
+	add_tests_for_rating_ids ("/AppStream/content_rating/descriptions/", as_test_content_rating_descriptions);
+	g_test_add_func ("/AppStream/content_rating/descriptions/unknown", as_test_content_rating_descriptions_unknown);
+	add_tests_for_rating_ids ("/AppStream/content_rating/value-for-csm-age/", as_test_content_rating_value_for_csm_age);
+	g_test_add_func ("/AppStream/content_rating/value-for-csm-age/unknown", as_test_content_rating_value_for_csm_age_unknown);
+	add_tests_for_rating_ids ("/AppStream/content_rating/consistent-csm-descriptions/", as_test_content_rating_consistent_csm_descriptions);
 	g_test_add_func ("/AppStream/content_rating_system/from-locale", as_test_content_rating_system_from_locale);
 	g_test_add_func ("/AppStream/content_rating_system/to-string", as_test_content_rating_system_to_string);
+	g_test_add_func ("/AppStream/content_rating_system/age_to_str/values/pegi", as_test_content_rating_system_age_to_str_values_pegi);
+
+	add_tests_for_rating_systems ("/AppStream/content_rating_system/age_to_str/", as_test_content_rating_system_age_to_str);
+	add_tests_for_rating_systems ("/AppStream/content_rating_system/roundtrip/", as_test_content_rating_system_roundtrip);
+
 	g_test_add_func ("/AppStream/release", as_test_release_func);
 	g_test_add_func ("/AppStream/release{date}", as_test_release_date_func);
 	g_test_add_func ("/AppStream/release{appdata}", as_test_release_appdata_func);

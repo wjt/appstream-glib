@@ -110,6 +110,8 @@ const gchar	**as_content_rating_get_rating_ids (AsContentRating	*content_rating)
 
 guint		as_content_rating_attribute_to_csm_age (const gchar		*id,
 							AsContentRatingValue 	 value);
+AsContentRatingValue as_content_rating_value_for_csm_age (const gchar		*id,
+							  guint 		 age);
 const gchar    *as_content_rating_attribute_to_description (const gchar          *id,
 							    AsContentRatingValue  value);
 const gchar	**as_content_rating_get_all_rating_ids (void);
@@ -124,5 +126,14 @@ void		 as_content_rating_add_attribute(AsContentRating	*content_rating,
 /* content rating systems  */
 AsContentRatingSystem  as_content_rating_system_from_locale (const gchar           *locale);
 const gchar           *as_content_rating_system_to_string   (AsContentRatingSystem  system);
+const gchar           *as_content_rating_system_age_to_str  (AsContentRatingSystem  system,
+							     guint                  age,
+							     gboolean               round_up,
+							     const gchar           *locale);
+
+const gchar * const   *as_content_rating_system_get_categories (AsContentRatingSystem   system,
+								const gchar            *locale,
+								const guint           **ages,
+								gsize                  *n_levels);
 
 G_END_DECLS

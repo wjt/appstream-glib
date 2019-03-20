@@ -280,6 +280,48 @@ as_content_rating_attribute_to_csm_age (const gchar *id, AsContentRatingValue va
 	return 0;
 }
 
+/**
+ * as_content_rating_value_for_csm_age:
+ * @id: the subsection ID e.g. `violence-cartoon`
+ * @age: the age in years
+ *
+ * Gets the rating level for a specific age, based on the mapping to Common
+ * Sense Media levels. This is the inverse of
+ * as_content_rating_attribute_to_csm_age().
+ *
+ * Gets the Common Sense Media approved age for a specific rating level.
+ *
+ * Returns: the #AsContentRatingValue, e.g. %AS_CONTENT_RATING_VALUE_INTENSE, or
+ *  %AS_CONTENT_RATING_UNKNOWN if @id is unknown.
+ * Since: 0.7.15
+ **/
+AsContentRatingValue
+as_content_rating_value_for_csm_age (const gchar *id,
+                                     guint        age)
+{
+	AsContentRatingValue value = AS_CONTENT_RATING_VALUE_UNKNOWN;
+
+        for (guint i = 0; oars_to_csm_mappings[i].id != NULL; i++) {
+		if (g_strcmp0 (oars_to_csm_mappings[i].id, id) == 0) {
+			if (age >= oars_to_csm_mappings[i].csm_age_intense) {
+				return AS_CONTENT_RATING_VALUE_INTENSE;
+			}
+			if (age >= oars_to_csm_mappings[i].csm_age_moderate) {
+				return AS_CONTENT_RATING_VALUE_MODERATE;
+			}
+			if (age >= oars_to_csm_mappings[i].csm_age_mild) {
+				return AS_CONTENT_RATING_VALUE_MILD;
+			}
+			if (age >= oars_to_csm_mappings[i].csm_age_none) {
+				return AS_CONTENT_RATING_VALUE_NONE;
+			}
+			return AS_CONTENT_RATING_VALUE_UNKNOWN;
+		}
+        }
+
+        return value;
+}
+
 static const struct {
 	const gchar	*id;
 	const gchar	*desc_none;  /* for %AS_CONTENT_RATING_VALUE_NONE */
@@ -881,6 +923,187 @@ as_content_rating_system_to_string (AsContentRatingSystem system)
 		return "IGRS";
 	default:
 		return NULL;
+	}
+}
+
+/* data obtained from https://en.wikipedia.org/wiki/Video_game_rating_system */
+static const gchar *content_rating_strings[AS_CONTENT_RATING_SYSTEM_LAST][7] = {
+	{ "3+", "7+", "12+", "16+", "18+", NULL }, /* AS_CONTENT_RATING_SYSTEM_UNKNOWN */
+	{ "3+", "7+", "12+", "16+", "18+", NULL }, /* AS_CONTENT_RATING_SYSTEM_IARC */
+	{ "ATP", "+13", "+18", NULL }, /* AS_CONTENT_RATING_SYSTEM_INCAA */
+	{ "PG", "MA15+", "R18+", NULL }, /* AS_CONTENT_RATING_SYSTEM_ACB */
+	{ "L", "10", "12", "14", "16", "18", NULL }, /* AS_CONTENT_RATING_SYSTEM_DJCTQ */
+	{ "普通", "保護", "輔12", "輔15", "限制", NULL }, /* AS_CONTENT_RATING_SYSTEM_GSRR */
+	{ "3", "7", "12", "16", "18", NULL }, /* AS_CONTENT_RATING_SYSTEM_PEGI */
+	{ "3+", "7+", "12+", "16+", "18+", NULL }, /* AS_CONTENT_RATING_SYSTEM_KAVI */
+	{ "0", "6", "12", "16", "18", NULL}, /* AS_CONTENT_RATING_SYSTEM_USK */
+	{ "+3", "+7", "+12", "+15", "+18", NULL }, /* AS_CONTENT_RATING_SYSTEM_ESRA */
+	{ "A", "B", "C", "D", "Z", NULL }, /* AS_CONTENT_RATING_SYSTEM_CERO */
+	{ "G", "R13", "R15", "R16", "R18", NULL }, /* AS_CONTENT_RATING_SYSTEM_OFLCNZ */
+	{ "0+", "6+", "12+", "16+", "18+", NULL }, /* AS_CONTENT_RATING_SYSTEM_RUSSIA */
+	{ "General", "ADV", "M18", NULL }, /* AS_CONTENT_RATING_SYSTEM_MDA */
+	{ "ALL", "12", "15", "18", NULL }, /* AS_CONTENT_RATING_SYSTEM_GRAC */
+	{ "Early Childhood", "Everyone", "Everyone 10+", "Teen", "Mature", "Adults Only", NULL }, /* AS_CONTENT_RATING_SYSTEM_ESRB */
+	{ "SU", "3+", "7+", "13+", "18+", NULL }, /* AS_CONTENT_RATING_SYSTEM_IGRS */
+};
+static const gchar *content_rating_strings_esrb_es[] = {
+	"Niños pequeños",
+	"Todos",
+	"Todos +10",
+	"Adolescentes",
+	"Maduro",
+	"Adultos únicamente",
+	NULL
+};
+static const gchar *content_rating_strings_esrb_fr[] = {
+	"Jeunes enfants",
+	"Enfants et adultes",
+	"Enfants et adultes 10+",
+	"Adolescents",
+	"Jeune adultes",
+	"Adultes seulement",
+	NULL
+};
+G_STATIC_ASSERT (G_N_ELEMENTS (content_rating_strings[AS_CONTENT_RATING_SYSTEM_ESRB]) ==
+		 G_N_ELEMENTS (content_rating_strings_esrb_es));
+G_STATIC_ASSERT (G_N_ELEMENTS (content_rating_strings[AS_CONTENT_RATING_SYSTEM_ESRB]) ==
+		 G_N_ELEMENTS (content_rating_strings_esrb_fr));
+
+static guint content_rating_ages[AS_CONTENT_RATING_SYSTEM_LAST][7] = {
+	{ 3, 7, 12, 16, 18 }, /* AS_CONTENT_RATING_SYSTEM_UNKNOWN */
+	{ 3, 7, 12, 16, 18 }, /* AS_CONTENT_RATING_SYSTEM_IARC */
+	{ 0, 13, 18 }, /* AS_CONTENT_RATING_SYSTEM_INCAA */
+	{ 0, 15, 18 }, /* AS_CONTENT_RATING_SYSTEM_ACB */
+	{ 0, 10, 12, 14, 16, 18 }, /* AS_CONTENT_RATING_SYSTEM_DJCTQ */
+	{ 0, 6, 12, 15, 18 }, /* AS_CONTENT_RATING_SYSTEM_GSRR */
+	{ 3, 7, 12, 16, 18 }, /* AS_CONTENT_RATING_SYSTEM_PEGI */
+	{ 3, 7, 12, 16, 18 }, /* AS_CONTENT_RATING_SYSTEM_KAVI */
+	{ 0, 6, 12, 16, 18 }, /* AS_CONTENT_RATING_SYSTEM_USK */
+	{ 3, 7, 12, 15, 18 }, /* AS_CONTENT_RATING_SYSTEM_ESRA */
+	{ 0, 12, 15, 17, 18 }, /* AS_CONTENT_RATING_SYSTEM_CERO */
+	{ 0, 13, 15, 16, 18 }, /* AS_CONTENT_RATING_SYSTEM_OFLCNZ */
+	{ 0, 6, 12, 16, 18 }, /* AS_CONTENT_RATING_SYSTEM_RUSSIA */
+	{ 0, 16, 18 }, /* AS_CONTENT_RATING_SYSTEM_MDA */
+	{ 0, 12, 15, 18 }, /* AS_CONTENT_RATING_SYSTEM_GRAC */
+	{ 0, 6, 10, 13, 17, 18 }, /* AS_CONTENT_RATING_SYSTEM_ESRB */
+	{ 0, 3, 7, 13, 18 }, /* AS_CONTENT_RATING_SYSTEM_IGRS */
+};
+
+/**
+ * as_content_rating_system_get_categories:
+ * @system: a content rating system
+ * @locale: (nullable): the current locale
+ * @ages: (out) (transfer none) (array length=n_levels): the ages corresponding
+ *  to each returned category, in increasing order of age
+ * @n_levels: (optional): the number of elements in @ages and the returned array
+ *  of strings (not including the NULL terminator)
+ *
+ * Returns the names of the categories defined by @system.
+ *
+ * Note that many rating systems do not have a category for under-3s.
+ *
+ * Most rating systems are only used in one (monolingual) country, or use
+ * digits or abstract letters rather than text for the category names; for such
+ * systems, @locale is ignored if provided. The exception is ESRB, which is
+ * used in the USA, Canada and Mexico, and hence has official names for the
+ * categories in English, French and Spanish; in this case, the returned
+ * category names are in French or Spanish if appropriate for @locale, and in
+ * English otherwise.
+ *
+ * Returns: (transfer none) (array length=n_levels): the names of the
+ *  categories defined by @system, in increasing order of age
+ */
+const gchar * const *
+as_content_rating_system_get_categories (AsContentRatingSystem   system,
+                                         const gchar            *locale,
+                                         const guint           **ages,
+                                         gsize                  *n_levels)
+{
+	g_autofree gchar *locale_copy = g_strdup (locale);
+	const gchar *language;
+	const gchar * const *strings;
+
+	g_return_val_if_fail (ages != NULL, NULL);
+
+	strings = content_rating_strings[system];
+	*ages = content_rating_ages[system];
+
+	if (system == AS_CONTENT_RATING_SYSTEM_ESRB &&
+	    locale_copy != NULL &&
+	    parse_locale (locale_copy, &language, NULL, NULL, NULL)) {
+		if (g_strcmp0 (language, "es") == 0) {
+			strings = content_rating_strings_esrb_es;
+		}
+		if (g_strcmp0 (language, "fr") == 0) {
+			strings = content_rating_strings_esrb_fr;
+		}
+	}
+
+	if (n_levels != NULL) {
+		*n_levels = g_strv_length ((gchar **) strings);
+	}
+
+	return strings;
+}
+
+/**
+ * as_content_rating_system_age_to_str:
+ * @system: a content rating system
+ * @age: if @round_up is %TRUE, the CSM age (in years) for a piece of content;
+ *  if @round_up is %FALSE, the age (in years) of a human viewer
+ * @round_up: if %TRUE, round to the older category if @age falls between two
+ *  age bounds; if %FALSE, round to the younger category
+ * @locale: (nullable): the current locale
+ *
+ * Returns the name of the category within @system which contains @age, or
+ * %NULL if there is no such category.
+ *
+ * There are two possible sources of @age: the age of a viewer, or the CSM age
+ * rating for a piece of content. Suppose @system is
+ * #AS_CONTENT_RATING_SYSTEM_PEGI, which has categories for "suitable for 7 and
+ * older" and "suitable for 12 and older". A 10-year-old child can see content
+ * rated "7", but not content rated "12"; in this case, @round_up should be
+ * %FALSE. Conversely, content suitable for CSM age 10 or older should be rated
+ * "12", not "7", so @round_up should be %TRUE in this case.
+ *
+ * Most rating systems are only used in one (monolingual) country, or use
+ * digits or abstract letters rather than text for the category names; for such
+ * systems, @locale is ignored if provided. The exception is ESRB, which is
+ * used in the USA, Canada and Mexico, and hence has official names for the
+ * categories in English, French and Spanish; in this case, the returned
+ * category names are in French or Spanish if appropriate for @locale, and in
+ * English otherwise.
+ *
+ * Returns: the appropriate category in @system for @age, or %NULL if @round_up
+ *  is %FALSE and @age is smaller than the lower bound of the youngest category.
+ */
+const gchar *
+as_content_rating_system_age_to_str (AsContentRatingSystem  system,
+                                     guint                  age,
+                                     gboolean               round_up,
+                                     const gchar           *locale)
+{
+	const gchar * const *strings;
+	const guint *ages;
+	gsize i;
+	gsize n;
+
+	strings = as_content_rating_system_get_categories (system, locale, &ages, &n);
+	g_assert (n > 0);
+
+	if (round_up) {
+		for (i = 0; i < n - 1; i++) {
+			if (age <= ages[i]) {
+				return strings[i];
+			}
+		}
+		return strings[n - 1];
+	} else {
+		const gchar *str = NULL;
+		for (i = 0; strings[i] != NULL && age >= ages[i]; i++) {
+			str = strings[i];
+		}
+		return str;
 	}
 }
 
