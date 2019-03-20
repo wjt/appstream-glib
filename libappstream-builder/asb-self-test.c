@@ -24,6 +24,7 @@
 
 #undef HAVE_FONTS
 
+#ifdef HAVE_RPM
 static gchar *
 asb_test_get_filename (const gchar *filename)
 {
@@ -68,7 +69,6 @@ asb_test_compare_lines (const gchar *txt1, const gchar *txt2, GError **error)
 	return FALSE;
 }
 
-#ifdef HAVE_RPM
 static void
 asb_test_package_rpm_func (void)
 {
